@@ -1,0 +1,163 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<h1>Accounting Reports</h1>
+
+<div class="accounting-container">
+    <div class="back-link">
+        <a href="/dashboard">&larr; Back to Dashboard </a>
+    </div>
+    <div class="current-balance">
+        <h2>Current Balance</h2>
+        <div class="balance-amount">${{ "%.2f"|format(current_balance) }}</div>
+    </div>
+
+    <div class="transaction-history">
+        <h2>Transaction History</h2>
+        <table class="accounting-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Balance</th>
+                    <th>Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in accounting_entries %}
+                <tr>
+                    <td>{{ entry.date }}</td>
+                    <td>{{ entry.time }}</td>
+                    <td>${{ "%.2f"|format(entry.balance) }}</td>
+                    <td class="{{ entry.change_class }}">{{ entry.change_text }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .accounting-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .current-balance {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .balance-amount {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+    
+    .reports-section {
+        margin-bottom: 30px;
+    }
+    
+    .report-card {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0069d9;
+    }
+    
+    .revenue-results {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .results-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .result-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    
+    .total-revenue {
+        font-weight: bold;
+        border-top: 2px solid #dee2e6;
+        margin-top: 10px;
+        padding-top: 15px;
+    }
+    
+    .positive {
+        color: #28a745;
+    }
+    
+    .negative {
+        color: #dc3545;
+    }
+    
+    .accounting-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .accounting-table th, .accounting-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .accounting-table th {
+        background-color: #f8f9fa;
+    }
+    
+    .positive-change {
+        color: #28a745;
+    }
+    
+    .negative-change {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}

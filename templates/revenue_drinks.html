@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block body %}
+    <h1>Top Revenue Generating Drinks Report</h1>
+    
+    <form action="/reports/revenue_drinks" method="post">
+        <div>
+            <label for="start_date">Start Date:</label>
+            <input type="date" name="start_date" id="start_date" required>
+        </div>
+        
+        <div>
+            <label for="end_date">End Date:</label>
+            <input type="date" name="end_date" id="end_date" required>
+        </div>
+        
+        <div>
+            <label for="top_k">Number of drinks to show:</label>
+            <input type="number" name="top_k" id="top_k" value="5" min="1" max="20" required>
+        </div>
+        
+        <button type="submit">Generate Report</button>
+    </form>
+    
+    {% if results %}
+        <h2>Results</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Drink Name</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Total Revenue</th>
+                    <th>Revenue Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in results %}
+                    <tr>
+                        <td>{{ item[0] }}</td>
+                        <td>{{ item[1] }}</td>
+                        <td>{{ item[2] }}</td>
+                        <td>${{ item[3] }}</td>
+                        <td>{{ item[4] }}%</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    
+    <p><a href="/dashboard">Back to Dashboard</a></p>
+{% endblock %}

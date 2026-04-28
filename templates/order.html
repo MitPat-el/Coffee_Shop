@@ -1,0 +1,642 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<h1>New Order</h1>
+
+<form id="order-form">
+    <label for="menu-select">Select Item:</label>
+    <select id="menu-select">
+        <option value="">-- Choose --</option>
+        {% for item in menu_items %}
+            <option value="{{ item[0] }}"
+                    data-name="{{ item[1] }}"
+                    data-type="{{ item[2] }}"
+                    data-temp="{{ item[3] }}"
+                    data-size="{{ item[4] }}"
+                    data-price="{{ item[5] }}">
+                {{ item[1] }} ({{ item[2] }}, {{ item[3] }}, {{ item[4] }})
+            </option>
+        {% endfor %}
+    </select>
+    
+    <p>
+        <strong>Selected Item:</strong> <span id="selected-item"></span><br>
+        Price: $<span id="price-display">0.00</span>
+    </p>
+
+    <label for="quantity">Quantity:</label>
+    <input type="number" id="quantity" min="1" value="1">
+
+    <button type="button" id="add-item">Add to Order</button>
+</form>
+
+<hr>
+
+<!-- Available Promotions Section -->
+<div id="promotions-section">
+    <h2>Available Promotions</h2>
+    <div id="active-promotions">
+        {% if promotions %}
+            {% for promo in promotions %}
+                <div class="promotion-card" id="promo-{{ promo.promotion_id }}" 
+                     data-promotion-id="{{ promo.promotion_id }}"
+                     data-menu-id="{{ promo.menu_id }}"
+                     data-quantity="{{ promo.promotion_quantity }}"
+                     data-price="{{ promo.promotion_price }}">
+                    <h3>{{ promo.promotion_name }}</h3>
+                    <p>Buy {{ promo.promotion_quantity }} of the same item, pay only ${{ "%.2f"|format(promo.promotion_price) }}</p>
+                    <button type="button" class="apply-promotion-btn" disabled>Apply Promotion</button>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No active promotions available at this time.</p>
+        {% endif %}
+    </div>
+</div>
+
+<hr>
+
+<h2>Current Order</h2>
+<table border="1" id="order-table">
+    <thead>
+        <tr>
+            <th>Name</th><th>Type</th><th>Temp</th><th>Size</th>
+            <th>Price</th><th>Quantity</th><th>Subtotal</th><th>Action</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div id="applied-promotions-container">
+    <h3>Applied Promotions</h3>
+    <table border="1" id="applied-promotions-table">
+        <thead>
+            <tr>
+                <th>Promotion</th><th>Item</th><th>Quantity</th><th>Discount</th><th>Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<p>
+    <strong>Subtotal: $<span id="subtotal-display">0.00</span></strong><br>
+    <strong>Savings: $<span id="savings-display">0.00</span></strong><br>
+    <strong>Total: $<span id="total-display">0.00</span></strong>
+</p>
+
+<form action="/order" method="post" id="final-order-form">
+    <input type="hidden" name="order-data" id="order-data">
+    <input type="hidden" name="promotion-data" id="promotion-data">
+    
+    <label for="payment_method">Payment Method:</label>
+    <select name="payment_method" required>
+        <option value="">-- Select --</option>
+        <option value="Cash">Cash</option>
+        <option value="Credit Card">Credit Card</option>
+    </select>
+
+    <br><br>
+    <button type="submit">Submit Order</button>
+</form>
+
+<style>
+    #promotions-section {
+        margin: 20px 0;
+    }
+    
+    #active-promotions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .promotion-card {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        width: 250px;
+        background-color: #f9f9f9;
+    }
+    
+    .promotion-card.eligible {
+        background-color: #e6f7ff;
+        border-color: #91d5ff;
+    }
+    
+    .promotion-card h3 {
+        margin-top: 0;
+        color: #333;
+    }
+    
+    .apply-promotion-btn {
+        background-color: #f5f5f5;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        padding: 5px 10px;
+        cursor: not-allowed;
+        color: #aaa;
+    }
+    
+    .apply-promotion-btn.eligible {
+        background-color: #1890ff;
+        color: white;
+        border-color: #1890ff;
+        cursor: pointer;
+    }
+    
+    #applied-promotions-container {
+        margin: 20px 0;
+    }
+    
+    .remove-btn {
+        background-color: #ff4d4f;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 3px 8px;
+        cursor: pointer;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    
+    th, td {
+        padding: 8px;
+        text-align: left;
+        border: 1px solid #ddd;
+    }
+    
+    th {
+        background-color: #f2f2f2;
+    }
+</style>
+
+<script>
+let orderItems = [];
+let appliedPromotions = [];
+let subtotal = 0.0;
+let savings = 0.0;
+let total = 0.0;
+
+// Initialize the Tom Select component for menu items
+document.addEventListener('DOMContentLoaded', function() {
+    new TomSelect("#menu-select", {
+        create: false,
+        sortField: {
+            field: "text",
+            direction: "asc"
+        },
+        placeholder: "Search by name, type, temp, size..."
+    });
+});
+
+// Display selected item details
+document.querySelector('#menu-select').addEventListener('change', function() {
+    let selected = this.options[this.selectedIndex];
+    if (selected.value !== "") {
+        let name = selected.dataset.name;
+        let type = selected.dataset.type;
+        let temp = selected.dataset.temp;
+        let size = selected.dataset.size;
+        let price = parseFloat(selected.dataset.price).toFixed(2);
+
+        document.querySelector('#selected-item').innerText = `${name} (${type}, ${temp}, ${size})`;
+        document.querySelector('#price-display').innerText = price;
+    }
+});
+
+// Add item to order
+document.querySelector('#add-item').addEventListener('click', function() {
+    let select = document.querySelector('#menu-select');
+    let selected = select.options[select.selectedIndex];
+    if (select.value === "") {
+        alert("Please select an item.");
+        return;
+    }
+
+    let quantity = parseInt(document.querySelector('#quantity').value);
+    if (!quantity || quantity < 1) {
+        alert("Please enter a valid quantity.");
+        return;
+    }
+
+    let name = selected.dataset.name;
+    let type = selected.dataset.type;
+    let temp = selected.dataset.temp;
+    let size = selected.dataset.size;
+    let price = parseFloat(selected.dataset.price);
+    let menu_id = parseInt(selected.value);
+
+    let subtotalAmount = price * quantity;
+    
+    // Add to local array - with a unique ID for reference
+    let itemId = Date.now(); // Simple unique ID for client-side reference
+    orderItems.push({ 
+        id: itemId,
+        menu_id, 
+        name, 
+        type, 
+        temp, 
+        size, 
+        price, 
+        quantity, 
+        subtotal: subtotalAmount
+    });
+
+    // Update table
+    let row = document.createElement("tr");
+    row.id = `item-${itemId}`;
+    row.innerHTML = `
+        <td>${name}</td>
+        <td>${type}</td>
+        <td>${temp}</td>
+        <td>${size}</td>
+        <td>$${price.toFixed(2)}</td>
+        <td>${quantity}</td>
+        <td>$${subtotalAmount.toFixed(2)}</td>
+        <td><button type="button" class="remove-btn" onclick="removeItem(${itemId})">Remove</button></td>
+    `;
+    document.querySelector("#order-table tbody").appendChild(row);
+
+    // Update totals
+    updateTotals();
+    
+    // Check if any promotions can be applied with the current order
+    checkPromotionEligibility();
+});
+
+// Remove item from order
+function removeItem(itemId) {
+    // Find the item index
+    const index = orderItems.findIndex(item => item.id === itemId);
+    if (index !== -1) {
+        // Remove the item
+        orderItems.splice(index, 1);
+        // Remove from UI
+        document.getElementById(`item-${itemId}`).remove();
+        
+        // Remove any applied promotions that might be using this item
+        checkAndRemoveAffectedPromotions();
+        
+        // Update totals and check promotions
+        updateTotals();
+        checkPromotionEligibility();
+    }
+}
+
+function checkAndRemoveAffectedPromotions() {
+    // Create a map of menu_id to quantity from current order items
+    const menuItemQuantities = {};
+    orderItems.forEach(item => {
+        if (!menuItemQuantities[item.menu_id]) {
+            menuItemQuantities[item.menu_id] = 0;
+        }
+        menuItemQuantities[item.menu_id] += parseInt(item.quantity);
+    });
+    
+    // Check each applied promotion
+    const promotionsToRemove = [];
+    appliedPromotions.forEach(promo => {
+        // If we don't have enough items for this promotion anymore
+        if (!menuItemQuantities[promo.menu_id] || 
+            menuItemQuantities[promo.menu_id] < promo.promotion_quantity) {
+            promotionsToRemove.push(promo.id);
+        }
+    });
+    
+    // Remove affected promotions
+    promotionsToRemove.forEach(promoId => {
+        removePromotion(promoId);
+    });
+}
+
+// Check if any promotions can be applied
+function checkPromotionEligibility() {
+    // Create a map of menu items and their quantities
+    const menuItemQuantities = {};
+    orderItems.forEach(item => {
+        if (!menuItemQuantities[item.menu_id]) {
+            menuItemQuantities[item.menu_id] = 0;
+        }
+        menuItemQuantities[item.menu_id] += parseInt(item.quantity);
+    });
+    
+    // Get all promotion cards
+    const promotionCards = document.querySelectorAll('.promotion-card');
+    
+    // Check each promotion
+    promotionCards.forEach(card => {
+        const promoMenuId = parseInt(card.dataset.menuId);
+        const requiredQuantity = parseInt(card.dataset.quantity);
+        const button = card.querySelector('.apply-promotion-btn');
+        
+        // Check if promotion is already applied
+        const isApplied = appliedPromotions.some(p => 
+            p.promotion_id === parseInt(card.dataset.promotionId)
+        );
+        
+        // Check if we have enough items for this promotion
+        const isEligible = menuItemQuantities[promoMenuId] >= requiredQuantity && !isApplied;
+        
+        if (isEligible) {
+            card.classList.add('eligible');
+            button.classList.add('eligible');
+            button.disabled = false;
+            button.textContent = 'Apply Promotion';
+            
+            // Add click event if not already applied
+            if (!button.hasAttribute('data-event-attached')) {
+                button.setAttribute('data-event-attached', 'true');
+                button.addEventListener('click', function() {
+                    applyPromotion(card);
+                });
+            }
+        } else {
+            card.classList.remove('eligible');
+            button.classList.remove('eligible');
+            button.disabled = true;
+            button.textContent = isApplied ? 'Applied' : 'Not Eligible';
+        }
+    });
+}
+
+// Apply a promotion
+function applyPromotion(promoCard) {
+    const promotionId = parseInt(promoCard.dataset.promotionId);
+    const menuId = parseInt(promoCard.dataset.menuId);
+    const requiredQuantity = parseInt(promoCard.dataset.quantity);
+    const promotionPrice = parseFloat(promoCard.dataset.price);
+    const promotionName = promoCard.querySelector('h3').textContent;
+    
+    // Find menu item name
+    let menuItemName = '';
+    orderItems.forEach(item => {
+        if (item.menu_id === menuId) {
+            menuItemName = item.name;
+        }
+    });
+    
+    // Calculate regular price (for discount display purposes)
+    let regularPrice = 0;
+    orderItems.forEach(item => {
+        if (item.menu_id === menuId) {
+            regularPrice += item.price;
+        }
+    });
+    
+    // Calculate discount
+    const discount = (regularPrice * requiredQuantity) - promotionPrice;
+    
+    // Add to applied promotions
+    const promoId = Date.now(); // Simple unique ID
+    appliedPromotions.push({
+        id: promoId,
+        promotion_id: promotionId,
+        menu_id: menuId,
+        promotion_quantity: requiredQuantity,
+        promotion_price: promotionPrice,
+        promotion_name: promotionName,
+        subtotal: promotionPrice,
+        discount: discount,
+        quantity: 1 // Each promotion instance counts as 1
+    });
+    
+    // Remove the required quantity of items from the orderItems
+    // We need to keep track of how many we've removed
+    let remainingToRemove = requiredQuantity;
+    
+    // Create a copy of orderItems to iterate through while modifying the original
+    const orderItemsCopy = [...orderItems];
+    
+    // Go through copy of orderItems to find matching items to remove
+    for (let i = 0; i < orderItemsCopy.length && remainingToRemove > 0; i++) {
+        const item = orderItemsCopy[i];
+        if (item.menu_id === menuId) {
+            // Get index in the real array
+            const index = orderItems.findIndex(oi => oi.id === item.id);
+            if (index === -1) continue; // Already removed
+            
+            if (item.quantity <= remainingToRemove) {
+                // Remove this entire item
+                // Remove from UI first
+                document.getElementById(`item-${item.id}`).remove();
+                // Then from array
+                orderItems.splice(index, 1);
+                remainingToRemove -= item.quantity;
+            } else {
+                // Partially remove from this item
+                orderItems[index].quantity -= remainingToRemove;
+                orderItems[index].subtotal = orderItems[index].price * orderItems[index].quantity;
+                
+                // Update the UI for this item
+                const row = document.getElementById(`item-${item.id}`);
+                if (row) {
+                    // Update quantity cell
+                    row.cells[5].textContent = orderItems[index].quantity;
+                    // Update subtotal cell
+                    row.cells[6].textContent = `$${orderItems[index].subtotal.toFixed(2)}`;
+                }
+                
+                remainingToRemove = 0;
+            }
+        }
+    }
+    
+    // Add to UI
+    addPromotionToUI(promoId, promotionName, menuItemName, requiredQuantity, discount.toFixed(2));
+    
+    // Update button state
+    const button = promoCard.querySelector('.apply-promotion-btn');
+    button.disabled = true;
+    button.classList.remove('eligible');
+    button.textContent = 'Applied';
+    promoCard.classList.remove('eligible');
+    
+    // Update totals
+    updateTotals();
+    
+    // Check promotions again (as applying one might affect eligibility of others)
+    checkPromotionEligibility();
+}
+
+// Add a promotion to the UI
+function addPromotionToUI(promoId, promotionName, itemName, quantity, discount) {
+    const row = document.createElement('tr');
+    row.id = `promo-row-${promoId}`;
+    row.innerHTML = `
+        <td>${promotionName}</td>
+        <td>${itemName}</td>
+        <td>${quantity}</td>
+        <td>$${discount}</td>
+        <td><button type="button" class="remove-btn" onclick="removePromotion(${promoId})">Remove</button></td>
+    `;
+    document.querySelector('#applied-promotions-table tbody').appendChild(row);
+}
+
+// Remove a promotion
+function removePromotion(promoId) {
+    // Find the promotion
+    const index = appliedPromotions.findIndex(promo => promo.id === promoId);
+    if (index !== -1) {
+        const promo = appliedPromotions[index];
+        
+        // Restore items to the regular order
+        // For simplicity, we'll add them as a new consolidated item
+        const menuId = promo.menu_id;
+        
+        // Find a menu item with this ID to get its details
+        let menuDetails = null;
+        // Check in current orderItems
+        for (const item of orderItems) {
+            if (item.menu_id === menuId) {
+                menuDetails = {
+                    name: item.name,
+                    type: item.type,
+                    temp: item.temp,
+                    size: item.size,
+                    price: item.price
+                };
+                break;
+            }
+        }
+        
+        // If not found in current items, check in the menu select options
+        if (!menuDetails) {
+            const menuOption = document.querySelector(`#menu-select option[value="${menuId}"]`);
+            if (menuOption) {
+                menuDetails = {
+                    name: menuOption.dataset.name,
+                    type: menuOption.dataset.type,
+                    temp: menuOption.dataset.temp,
+                    size: menuOption.dataset.size,
+                    price: parseFloat(menuOption.dataset.price)
+                };
+            }
+        }
+        
+        // If we found the details, add the items back
+        if (menuDetails) {
+            const itemId = Date.now();
+            const quantity = promo.promotion_quantity;
+            const subtotal = menuDetails.price * quantity;
+            
+            // Add to order items array
+            orderItems.push({
+                id: itemId,
+                menu_id: menuId,
+                name: menuDetails.name,
+                type: menuDetails.type,
+                temp: menuDetails.temp,
+                size: menuDetails.size,
+                price: menuDetails.price,
+                quantity: quantity,
+                subtotal: subtotal
+            });
+            
+            // Add to UI
+            let row = document.createElement("tr");
+            row.id = `item-${itemId}`;
+            row.innerHTML = `
+                <td>${menuDetails.name}</td>
+                <td>${menuDetails.type}</td>
+                <td>${menuDetails.temp}</td>
+                <td>${menuDetails.size}</td>
+                <td>$${menuDetails.price.toFixed(2)}</td>
+                <td>${quantity}</td>
+                <td>$${subtotal.toFixed(2)}</td>
+                <td><button type="button" class="remove-btn" onclick="removeItem(${itemId})">Remove</button></td>
+            `;
+            document.querySelector("#order-table tbody").appendChild(row);
+        }
+        
+        // Remove promotion from array
+        appliedPromotions.splice(index, 1);
+        
+        // Remove from UI
+        document.getElementById(`promo-row-${promoId}`).remove();
+        
+        // Update totals
+        updateTotals();
+        
+        // Check promotions again
+        checkPromotionEligibility();
+    }
+}
+
+// Update order totals
+function updateTotals() {
+    // Calculate subtotal from order items
+    subtotal = orderItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+    
+    // Calculate savings from applied promotions
+    savings = appliedPromotions.reduce((sum, promo) => sum + parseFloat(promo.discount), 0);
+    
+    // Calculate final total
+    total = subtotal - savings;
+    
+    // Update display
+    document.querySelector('#subtotal-display').innerText = subtotal.toFixed(2);
+    document.querySelector('#savings-display').innerText = savings.toFixed(2);
+    document.querySelector('#total-display').innerText = total.toFixed(2);
+    
+    // Prepare data for form submission
+    prepareFormData();
+}
+
+// Prepare data for form submission
+function prepareFormData() {
+    // Format order items for backend
+    const orderData = orderItems.map(item => ({
+        menu_id: item.menu_id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        subtotal: item.subtotal
+    }));
+    
+    // Format promotions for backend - include all necessary fields
+    const promotionData = appliedPromotions.map(promo => ({
+        promotion_id: promo.promotion_id,
+        menu_id: promo.menu_id,
+        quantity: promo.quantity,
+        promotion_quantity: promo.promotion_quantity,
+        promotion_price: promo.promotion_price,
+        discount: promo.discount,
+        subtotal: promo.subtotal
+    }));
+    
+    // Set form values
+    document.querySelector('#order-data').value = JSON.stringify(orderData);
+    document.querySelector('#promotion-data').value = JSON.stringify(promotionData);
+    
+    // For debugging - check what's being sent
+    console.log('Order data:', orderData);
+    console.log('Promotion data:', promotionData);
+}
+// Order form submission validation
+document.querySelector('#final-order-form').addEventListener('submit', function(e) {
+    // Prevent default form submission first
+    e.preventDefault();
+    
+    if (orderItems.length === 0 && appliedPromotions.length === 0) {
+        alert('Please add at least one item to your order.');
+        return false;
+    }
+    
+    if (!document.querySelector('[name="payment_method"]').value) {
+        alert('Please select a payment method.');
+        return false;
+    }
+    
+    // Make sure the form data is prepared with the latest information
+    prepareFormData();
+    
+    // If everything checks out, submit the form
+    this.submit();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,194 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<h1>Manage Ingredients</h1>
+
+<div class="info-section">
+    <h2>Current Balance: ${{ current_balance }}</h2>
+</div>
+
+<div class="ingredients-section">
+    <h2>Current Inventory</h2>
+    <table id="ingredients-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Unit</th>
+                <th>Price/Unit</th>
+                <th>In Stock</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ingredient in ingredients %}
+            <tr>
+                <td>{{ ingredient[0] }}</td>
+                <td>{{ ingredient[1] }}</td>
+                <td>{{ ingredient[2] }}</td>
+                <td>${{ ingredient[3] }}</td>
+                <td>{{ ingredient[4] }} {{ ingredient[2] }}</td>
+                <td>
+                    <button onclick="buyIngredient('{{ ingredient[0] }}', '{{ ingredient[1] }}', '{{ ingredient[3] }}')">Buy More</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="form-section" id="purchase-form-container" style="display:none;">
+    <h2>Purchase Ingredients</h2>
+    <form id="purchase-form" action="/buy_ingredient" method="post">
+        <input type="hidden" id="ingredient_id" name="ingredient_id">
+        
+        <div class="form-group">
+            <label for="ingredient_name">Ingredient:</label>
+            <input type="text" id="ingredient_name" readonly>
+        </div>
+        
+        <div class="form-group">
+            <label for="price_per_unit">Price per Unit:</label>
+            <input type="text" id="price_per_unit" readonly>
+        </div>
+        
+        <div class="form-group">
+            <label for="quantity">Quantity to Purchase:</label>
+            <input type="number" id="quantity" name="quantity" min="0.01" step="0.01" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="total_cost">Total Cost:</label>
+            <input type="text" id="total_cost" readonly>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit">Confirm Purchase</button>
+            <button type="button" onclick="cancelPurchase()">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<div class="form-section">
+    <h2>Add New Ingredient</h2>
+    <form id="ingredient-form" action="/add_ingredient" method="post">
+        <div class="form-group">
+            <label for="name">Ingredient Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="unit">Unit of Measure:</label>
+            <input type="text" id="unit" name="unit" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="price">Price per Unit:</label>
+            <input type="number" id="price" name="price" step="0.01" min="0.01" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="initial_stock">Initial Stock Amount:</label>
+            <input type="number" id="initial_stock" name="initial_stock" step="0.01" min="0" required>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit">Add Ingredient</button>
+        </div>
+    </form>
+</div>
+
+<div class="nav-buttons">
+    <a href="/dashboard"><button>Back to Dashboard</button></a>
+</div>
+
+<style>
+    .info-section {
+        background-color: #e6f7ff;
+        padding: 10px;
+        border: 1px solid #91d5ff;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .ingredients-section, .form-section {
+        margin-bottom: 20px;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    
+    th {
+        background-color: #f2f2f2;
+    }
+    
+    .form-group {
+        margin-bottom: 10px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .form-group input, .form-group select {
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+    }
+    
+    .form-actions {
+        margin-top: 15px;
+    }
+    
+    .nav-buttons {
+        margin-top: 20px;
+    }
+</style>
+
+<script>
+    function buyIngredient(id, name, price) {
+        // Show purchase form
+        document.getElementById('purchase-form-container').style.display = 'block';
+        
+        // Fill in the form
+        document.getElementById('ingredient_id').value = id;
+        document.getElementById('ingredient_name').value = name;
+        document.getElementById('price_per_unit').value = '$' + price;
+        
+        // Clear previous input
+        document.getElementById('quantity').value = '';
+        document.getElementById('total_cost').value = '';
+        
+        // Scroll to the form
+        document.getElementById('purchase-form-container').scrollIntoView({
+            behavior: 'smooth'
+        });
+        
+        // Set up quantity change listener
+        document.getElementById('quantity').addEventListener('input', calculateTotal);
+    }
+    
+    function calculateTotal() {
+        const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+        const price = parseFloat(document.getElementById('price_per_unit').value.replace('$', '')) || 0;
+        
+        const total = (quantity * price).toFixed(2);
+        document.getElementById('total_cost').value = '$' + total;
+    }
+    
+    function cancelPurchase() {
+        // Hide the purchase form
+        document.getElementById('purchase-form-container').style.display = 'none';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+
+{% block body %}
+    <h1>Top Most Popular Items Report</h1>
+    
+    <form action="/reports/popular_items" method="post">
+        <div>
+            <label for="month">Month:</label>
+            <select name="month" id="month" required>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="year">Year:</label>
+            <input type="number" name="year" id="year" value="{{ current_year }}" min="2020" max="2030" required>
+        </div>
+        
+        <div>
+            <label for="top_k">Number of items to show:</label>
+            <input type="number" name="top_k" id="top_k" value="5" min="1" max="20" required>
+        </div>
+        
+        <button type="submit">Generate Report</button>
+    </form>
+    
+    {% if results %}
+        <h2>Results</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Quantity Sold</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in results %}
+                    <tr>
+                        <td>{{ item[0] }}</td>
+                        <td>{{ item[1] }}</td>
+                        <td>{{ item[2] }}</td>
+                        <td>{{ item[3] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    
+    <p><a href="/dashboard">Back to Dashboard</a></p>
+{% endblock %}

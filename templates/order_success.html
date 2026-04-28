@@ -1,0 +1,101 @@
+{% extends "layout.html" %}
+{% block body %}
+<h1>Order Placed Successfully!</h1>
+<div class="success-message">
+    <p>Order #{{ order_id }} has been processed.</p>
+    <p>Total amount: ${{ "%.2f"|format(total) }}</p>
+    {% if savings > 0 %}
+    <p>You saved: ${{ "%.2f"|format(savings) }} with our promotions!</p>
+    {% endif %}
+</div>
+
+<div class="order-details">
+    <h2>Order Items</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>${{ "%.2f"|format(item.unit_price) }}</td>
+                <td>${{ "%.2f"|format(item.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="preparation-steps">
+    <h2>Preparation Steps</h2>
+    {% for item in preparation_steps %}
+    <div class="item-preparation">
+        <h3>{{ item.name }}</h3>
+        <ol>
+            {% for step in item.steps %}
+            <li>{{ step.description }}</li>
+            {% endfor %}
+        </ol>
+        
+        <h4>Ingredients Required Per item:</h4>
+        <ul>
+            {% for ingredient in item.ingredients %}
+            <li>{{ ingredient.ingredient_name }}: {{ ingredient.quantity / item.quantity }}  {{ ingredient.unit }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="actions">
+    <a href="/dashboard">
+        <button>Return to Dashboard</button>
+    </a>
+    <a href="/order">
+        <button>Place Another Order</button>
+    </a>
+</div>
+
+<style>
+    .success-message {
+        background-color: #d4edda;
+        border-left: 5px solid #28a745;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .item-preparation {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .actions {
+        margin-top: 30px;
+    }
+    
+    .order-details, .preparation-steps {
+        margin-bottom: 30px;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    
+    table th, table td {
+        padding: 8px;
+        text-align: left;
+    }
+</style>
+{% endblock %}

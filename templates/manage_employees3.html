@@ -1,0 +1,491 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<h1>Manage Employees</h1>
+
+<div class="employees-section">
+    <h2>Current Employees</h2>
+    <table id="employees-table">
+        <thead>
+            <tr>
+                <th>SSN</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Password</th>
+                <th>Salary</th>
+                <th>Role Details</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+            <tr>
+                <td>{{ employee[0] }}</td>
+                <td>{{ employee[2] }}</td>
+                <td>{{ employee[1] }}</td>
+                <td>{{ employee[3] }}</td>
+                <td>{{ employee[6] }}</td>
+                <td>${{ employee[4] }}</td>
+                <td>
+                    {% if employee[1] == 'Manager' %}
+                        Ownership: {{ employee[5] }}%
+                    {% elif employee[1] == 'Barista' %}
+                        <button onclick="viewSchedule('{{ employee[0] }}')">View Schedule</button>
+                    {% endif %}
+                </td>
+                <td>
+                    <button onclick="editEmployee('{{ employee[0] }}', '{{ employee[2] }}', '{{ employee[1] }}', '{{ employee[3] }}', '{{ employee[6] }}', '{{ employee[4] }}', '{{ employee[5] }}')">Edit</button>
+                    <form action="/delete_employee" method="post" style="display:inline;">
+                        <input type="hidden" name="ssn" value="{{ employee[0] }}">
+                        <input type="hidden" name="role" value="{{ employee[1] }}">
+                        <button type="submit" onclick="return confirm('Are you sure you want to delete this employee?');">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Barista Schedule Modal -->
+<div id="schedule-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3>Barista Schedule</h3>
+        <div id="schedule-details"></div>
+    </div>
+</div>
+
+<div class="form-section">
+    <h2>Add New Employee</h2>
+    <form id="employee-form" action="/add_employee" method="post">
+        <div class="form-group">
+            <label for="ssn">SSN (9 digits):</label>
+            <input type="text" id="ssn" name="ssn" pattern="[0-9]{9}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="role">Role:</label>
+            <select id="role" name="role" required onchange="toggleRoleFields()">
+                <option value="">-- Select Role --</option>
+                <option value="Manager">Manager</option>
+                <option value="Barista">Barista</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="salary">Salary:</label>
+            <input type="number" id="salary" name="salary" step="0.01" min="0" required>
+        </div>
+        
+        <!-- Manager-specific fields -->
+        <div class="form-group role-field" id="ownership-group" style="display:none;">
+            <label for="ownership">Ownership Percentage:</label>
+            <input type="number" id="ownership" name="ownership" step="0.01" min="0" max="100">
+        </div>
+        
+        <!-- Barista-specific fields -->
+        <div class="form-group role-field" id="schedule-group" style="display:none;">
+            <label>Availability Schedule:</label>
+            <div id="schedule-entries">
+                <div class="schedule-entry">
+                    <select name="schedule_day" required>
+                        <option value="">Select Day</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                    <input type="time" name="schedule_start" required>
+                    <input type="time" name="schedule_end" required>
+                    <button type="button" class="remove-schedule" onclick="removeScheduleEntry(this)" style="display:none;">Remove</button>
+                </div>
+            </div>
+            <button type="button" onclick="addScheduleEntry()">Add Another Day</button>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit">Add Employee</button>
+            <button type="button" id="update-button" style="display:none;" onclick="submitUpdate()">Update Employee</button>
+            <button type="button" id="cancel-button" style="display:none;" onclick="cancelEdit()">Cancel</button>
+        </div>
+        
+        <input type="hidden" id="is_update" name="is_update" value="false">
+        <input type="hidden" id="original_ssn" name="original_ssn" value="">
+        <input type="hidden" id="original_role" name="original_role" value="">
+    </form>
+</div>
+
+<div class="nav-buttons">
+    <a href="/dashboard"><button>Back to Dashboard</button></a>
+</div>
+
+<style>
+    .employees-section, .form-section {
+        margin-bottom: 20px;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    
+    th {
+        background-color: #f2f2f2;
+    }
+    
+    .form-group {
+        margin-bottom: 10px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .form-group input, .form-group select {
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+    }
+    
+    .form-actions {
+        margin-top: 15px;
+    }
+    
+    .nav-buttons {
+        margin-top: 20px;
+    }
+    
+    .schedule-entry {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 5px;
+        align-items: center;
+    }
+    
+    .schedule-entry select, .schedule-entry input {
+        flex: 1;
+    }
+    
+    /* Modal styles */
+    .modal {
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 600px;
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .close:hover {
+        color: black;
+    }
+</style>
+
+<script>
+    // Barista schedules data
+    const baristaSchedules = {
+        {% for ssn, schedules in barista_schedules.items() %}
+            "{{ ssn }}": [
+                {% for schedule in schedules %}
+                    {
+                        day: "{{ schedule.day }}",
+                        startTime: "{{ schedule.start_time }}",
+                        endTime: "{{ schedule.end_time }}"
+                    },
+                {% endfor %}
+            ],
+        {% endfor %}
+    };
+
+    function toggleRoleFields() {
+        var role = document.getElementById('role').value;
+        var ownershipGroup = document.getElementById('ownership-group');
+        var scheduleGroup = document.getElementById('schedule-group');
+        
+        // Hide all role-specific fields first
+        document.querySelectorAll('.role-field').forEach(field => {
+            field.style.display = 'none';
+        });
+        
+        // Show relevant fields based on role
+        if (role === 'Manager') {
+            ownershipGroup.style.display = 'block';
+            document.getElementById('ownership').required = true;
+        } else if (role === 'Barista') {
+            scheduleGroup.style.display = 'block';
+            // Make first schedule entry fields required
+            const firstDay = document.querySelector('select[name="schedule_day"]');
+            const firstStart = document.querySelector('input[name="schedule_start"]');
+            const firstEnd = document.querySelector('input[name="schedule_end"]');
+            
+            if (firstDay) firstDay.required = true;
+            if (firstStart) firstStart.required = true;
+            if (firstEnd) firstEnd.required = true;
+        }
+    }
+    
+    function addScheduleEntry() {
+        const container = document.getElementById('schedule-entries');
+        const newEntry = document.createElement('div');
+        newEntry.className = 'schedule-entry';
+        newEntry.innerHTML = `
+            <select name="schedule_day" required>
+                <option value="">Select Day</option>
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+            </select>
+            <input type="time" name="schedule_start" required>
+            <input type="time" name="schedule_end" required>
+            <button type="button" class="remove-schedule" onclick="removeScheduleEntry(this)">Remove</button>
+        `;
+        container.appendChild(newEntry);
+        
+        // Show all remove buttons if we have more than one entry
+        if (container.querySelectorAll('.schedule-entry').length > 1) {
+            container.querySelectorAll('.remove-schedule').forEach(btn => {
+                btn.style.display = 'block';
+            });
+        }
+    }
+    
+    function removeScheduleEntry(button) {
+        const container = document.getElementById('schedule-entries');
+        button.parentElement.remove();
+        
+        // Hide remove buttons if only one entry remains
+        if (container.querySelectorAll('.schedule-entry').length <= 1) {
+            container.querySelector('.remove-schedule').style.display = 'none';
+        }
+    }
+    
+    function viewSchedule(ssn) {
+        const modal = document.getElementById('schedule-modal');
+        const details = document.getElementById('schedule-details');
+        
+        // Clear previous content
+        details.innerHTML = '';
+        
+        // Check if we have schedules for this barista
+        if (baristaSchedules[ssn] && baristaSchedules[ssn].length > 0) {
+            // Create schedule table
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            `;
+            
+            // Add schedule entries
+            const tbody = table.querySelector('tbody');
+            baristaSchedules[ssn].forEach(schedule => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${schedule.day}</td>
+                    <td>${schedule.startTime}</td>
+                    <td>${schedule.endTime}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            details.appendChild(table);
+        } else {
+            details.innerHTML = '<p>No schedule available for this barista.</p>';
+        }
+        
+        // Show the modal
+        modal.style.display = 'block';
+    }
+    
+    function closeModal() {
+        document.getElementById('schedule-modal').style.display = 'none';
+    }
+    
+    function editEmployee(ssn, name, role, email, password, salary, ownership) {
+        // Fill the form with employee data
+        document.getElementById('ssn').value = ssn;
+        document.getElementById('name').value = name;
+        document.getElementById('role').value = role;
+        document.getElementById('email').value = email;
+        document.getElementById('password').value = password;
+        document.getElementById('salary').value = salary;
+        
+        // Toggle role-specific fields
+        toggleRoleFields();
+        
+        // Fill role-specific data
+        if (role === 'Manager' && ownership) {
+            document.getElementById('ownership').value = ownership;
+        } else if (role === 'Barista') {
+            // Clear existing schedule entries
+            const container = document.getElementById('schedule-entries');
+            container.innerHTML = '';
+            
+            // Add existing schedules or create a blank one if none exist
+            if (baristaSchedules[ssn] && baristaSchedules[ssn].length > 0) {
+                baristaSchedules[ssn].forEach((schedule, index) => {
+                    const entry = document.createElement('div');
+                    entry.className = 'schedule-entry';
+                    entry.innerHTML = `
+                        <select name="schedule_day" required>
+                            <option value="">Select Day</option>
+                            <option value="Monday"${schedule.day === 'Monday' ? ' selected' : ''}>Monday</option>
+                            <option value="Tuesday"${schedule.day === 'Tuesday' ? ' selected' : ''}>Tuesday</option>
+                            <option value="Wednesday"${schedule.day === 'Wednesday' ? ' selected' : ''}>Wednesday</option>
+                            <option value="Thursday"${schedule.day === 'Thursday' ? ' selected' : ''}>Thursday</option>
+                            <option value="Friday"${schedule.day === 'Friday' ? ' selected' : ''}>Friday</option>
+                            <option value="Saturday"${schedule.day === 'Saturday' ? ' selected' : ''}>Saturday</option>
+                            <option value="Sunday"${schedule.day === 'Sunday' ? ' selected' : ''}>Sunday</option>
+                        </select>
+                        <input type="time" name="schedule_start" value="${schedule.startTime}" required>
+                        <input type="time" name="schedule_end" value="${schedule.endTime}" required>
+                        <button type="button" class="remove-schedule" onclick="removeScheduleEntry(this)"${index === 0 && baristaSchedules[ssn].length === 1 ? ' style="display:none;"' : ''}>Remove</button>
+                    `;
+                    container.appendChild(entry);
+                });
+            } else {
+                // Create a blank schedule entry
+                addScheduleEntry();
+                document.querySelector('.remove-schedule').style.display = 'none';
+            }
+        }
+        
+        // Set form to update mode
+        document.getElementById('is_update').value = 'true';
+        document.getElementById('original_ssn').value = ssn;
+        document.getElementById('original_role').value = role;
+        
+        // Show update and cancel buttons, hide add button
+        document.querySelector('#employee-form button[type="submit"]').style.display = 'none';
+        document.getElementById('update-button').style.display = 'inline-block';
+        document.getElementById('cancel-button').style.display = 'inline-block';
+        
+        // Make SSN readonly since it's part of the primary key
+        document.getElementById('ssn').readOnly = true;
+        
+        // Change the form title
+        document.querySelector('.form-section h2').textContent = 'Edit Employee';
+    }
+    
+    function submitUpdate() {
+        // Change form action to update endpoint
+        const form = document.getElementById('employee-form');
+        form.action = '/update_employee';
+        form.submit();
+    }
+    
+    function cancelEdit() {
+        // Reset the form
+        document.getElementById('employee-form').reset();
+        
+        // Clear any barista schedules
+        const scheduleContainer = document.getElementById('schedule-entries');
+        scheduleContainer.innerHTML = `
+            <div class="schedule-entry">
+                <select name="schedule_day" required>
+                    <option value="">Select Day</option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                </select>
+                <input type="time" name="schedule_start" required>
+                <input type="time" name="schedule_end" required>
+                <button type="button" class="remove-schedule" onclick="removeScheduleEntry(this)" style="display:none;">Remove</button>
+            </div>
+        `;
+        
+        // Hide role-specific fields
+        document.querySelectorAll('.role-field').forEach(field => {
+            field.style.display = 'none';
+        });
+        
+        // Reset form mode
+        document.getElementById('is_update').value = 'false';
+        document.getElementById('original_ssn').value = '';
+        document.getElementById('original_role').value = '';
+        
+        // Show add button, hide update and cancel buttons
+        document.querySelector('#employee-form button[type="submit"]').style.display = 'inline-block';
+        document.getElementById('update-button').style.display = 'none';
+        document.getElementById('cancel-button').style.display = 'none';
+        
+        // Make SSN editable again
+        document.getElementById('ssn').readOnly = false;
+        
+        // Change back the form title
+        document.querySelector('.form-section h2').textContent = 'Add New Employee';
+    }
+    
+    // Initialize on page load
+    window.onload = function() {
+        // Handle modal close when clicking outside the modal content
+        window.onclick = function(event) {
+            const modal = document.getElementById('schedule-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        };
+    };
+</script>
+{% endblock %}

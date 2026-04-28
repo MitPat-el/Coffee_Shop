@@ -1,0 +1,244 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<h1>Revenue Report</h1>
+
+<div class="revenue-container">
+    <div class="back-link">
+        <a href="/dashboard">&larr; Back to Dashboard </a>
+    </div>
+
+    <div class="report-card">
+        <h3>Calculate Revenue</h3>
+        <p>Select a date range to calculate revenue (sales minus ingredient costs):</p>
+        
+        <form id="revenueForm" action="/reports/revenue" method="post">
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label for="start_date">Start Date:</label>
+                    <input type="date" id="start_date" name="start_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="end_date">End Date:</label>
+                    <input type="date" id="end_date" name="end_date" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary">Generate Report</button>
+        </form>
+        
+        {% if revenue_data %}
+        <div class="revenue-results">
+            <h4>Revenue Results: {{ revenue_data.start_date }} to {{ revenue_data.end_date }}</h4>
+            <div class="results-grid">
+                <div class="result-item">
+                    <span class="label">Total Sales:</span>
+                    <span class="value">${{ "%.2f"|format(revenue_data.total_sales) }}</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">Ingredient Costs:</span>
+                    <span class="value">${{ "%.2f"|format(revenue_data.ingredient_costs) }}</span>
+                </div>
+                <div class="result-item total-revenue">
+                    <span class="label">Net Revenue:</span>
+                    <span class="value {% if revenue_data.net_revenue >= 0 %}positive{% else %}negative{% endif %}">
+                        ${{ "%.2f"|format(revenue_data.net_revenue) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="details-section">
+            <h4>Sales Breakdown</h4>
+            <table class="details-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Count</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Regular Orders</td>
+                        <td>{{ revenue_data.regular_order_count }}</td>
+                        <td>${{ "%.2f"|format(revenue_data.regular_sales) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Promotion Orders</td>
+                        <td>{{ revenue_data.promo_order_count }}</td>
+                        <td>${{ "%.2f"|format(revenue_data.promo_sales) }}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><strong>Total</strong></td>
+                        <td><strong>{{ revenue_data.regular_order_count + revenue_data.promo_order_count }}</strong></td>
+                        <td><strong>${{ "%.2f"|format(revenue_data.total_sales) }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .revenue-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .back-link {
+        margin-bottom: 20px;
+    }
+    
+    .back-link a {
+        text-decoration: none;
+        color: #007bff;
+    }
+    
+    .report-card {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .form-group-row {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+    }
+    
+    .form-group {
+        flex: 1;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0069d9;
+    }
+    
+    .revenue-results {
+        margin-top: 30px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .results-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .result-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px;
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    
+    .total-revenue {
+        font-weight: bold;
+        font-size: 1.1em;
+        border-top: 2px solid #dee2e6;
+        margin-top: 15px;
+        padding-top: 20px;
+    }
+    
+    .positive {
+        color: #28a745;
+    }
+    
+    .negative {
+        color: #dc3545;
+    }
+    
+    .details-section {
+        margin-top: 30px;
+    }
+    
+    .details-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    
+    .details-table th, .details-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .details-table th {
+        background-color: #f8f9fa;
+    }
+    
+    .details-table tfoot {
+        background-color: #f8f9fa;
+    }
+    
+    .report-links {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .report-link {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        text-decoration: none;
+        color: inherit;
+        transition: background-color 0.2s;
+    }
+    
+    .report-link:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .report-icon {
+        font-size: 24px;
+        margin-right: 15px;
+    }
+    
+    .report-info h4 {
+        margin: 0 0 5px 0;
+    }
+    
+    .report-info p {
+        margin: 0;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
